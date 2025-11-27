@@ -1,0 +1,68 @@
+<?php
+
+namespace App\Controllers;
+
+use App\Controllers\BaseController;
+use App\Models\ModelAkun3;
+use App\Models\ModelNilai;
+use App\Models\ModelStatus;
+use App\Models\ModelTransaksi;
+use CodeIgniter\HTTP\ResponseInterface;
+use TCPDF;
+
+class Aruskas extends BaseController
+{
+    protected $objTransaksi;
+    protected $objNilai;
+    protected $objAkun3;
+    protected $objStatus;
+    protected $db;
+
+    // inisialisasi object data
+    function __construct()
+    {
+        $this->objTransaksi = new ModelTransaksi();
+        $this->db = \Config\Database::connect();
+    }
+
+    public function index()
+    {
+        $tglawal = $this->request->getVar('tglawal') ? $this->request->getVar('tglawal') : '';
+        $tglakhir = $this->request->getVar('tglakhir') ? $this->request->getVar('tglakhir') : '';
+
+        $rowdata = $this->objTransaksi->get_aruskas($tglawal, $tglakhir);
+
+        $data = [
+            'dttransaksi' => $rowdata,
+            'tglawal' => $tglawal,
+            'tglakhir' => $tglakhir,
+        ];
+
+        return view('aruskas/index', $data);
+    }
+
+    public function aruskaspdf()
+    {
+        $tglawal = $this->request->getVar('tglawal') ? $this->request->getVar('tglawal') : '';
+        $tglakhir = $this->request->getVar('tglakhir') ? $this->request->getVar('tglakhir') : '';
+
+        $rowdata = $this->objTransaksi->get_aruskas($tglawal, $tglakhir);
+
+        $data = [
+            'dttransaksi' => $rowdata,
+            'tglawal' => $tglawal,
+            'tglakhir' => $tglakhir,
+        ];
+
+        $html = view('aruskas/aruskaspdf', $data);
+        $pdf = new TCPDF('P', PDF_UNIT, 'A4', true, 'UTF-8', false);
+        $pdf->setPrintHeader(false);
+        $pdf->setPrintFooter(false);
+        $pdf->setMargins(30, 4, 30);
+        $pdf->setFont('helvetica', '', 8);
+        $pdf->AddPage();
+        $pdf->writeHTML($html, true, false, true, false, '');
+        $this->response->setContentType('aplication/pdf');
+        $pdf->Output('aruskas.pdf', 'I');
+    }
+}
