@@ -44,11 +44,12 @@ class ModelTransaksi extends Model
     // protected $beforeDelete   = [];
     // protected $afterDelete    = [];
 
-    public function noKwitansi(){
+    public function noKwitansi()
+    {
         $number = $this->db->table('tbl_transaksi')->select('RIGHT(tbl_transaksi.kwitansi,4) as kwitansi', FALSE)
-                ->orderBy('kwitansi','DESC')->limit(1)->get()->getRowArray();
+            ->orderBy('kwitansi', 'DESC')->limit(1)->get()->getRowArray();
 
-        if ($number == null){
+        if ($number == null) {
             $no = 1;
         } else {
             $no = intval($number['kwitansi']) + 1;
@@ -57,25 +58,27 @@ class ModelTransaksi extends Model
         return $nomor_kwitansi;
     }
 
-    public function get_jurnalumum($tglawal, $tglakhir){
+    public function get_jurnalumum($tglawal, $tglakhir)
+    {
         $sql = $this->db->table('tbl_nilai')
             ->join('tbl_transaksi', 'tbl_transaksi.id_transaksi = tbl_nilai.id_transaksi')
             ->join('akun3s', 'akun3s.kode_akun3 = tbl_nilai.kode_akun3')
             ->orderBy('id_nilai');
 
-        if($tglawal && $tglakhir){
+        if ($tglawal && $tglakhir) {
             $sql->where('tanggal  >=', $tglawal)->where('tanggal <=', $tglakhir);
         }
         return $sql->get()->getResultObject();
     }
 
-    public function get_posting($tglawal, $tglakhir, $kode_akun3){
+    public function get_posting($tglawal, $tglakhir, $kode_akun3)
+    {
         $sql = $this->db->table('tbl_nilai')
             ->join('tbl_transaksi', 'tbl_transaksi.id_transaksi = tbl_nilai.id_transaksi')
             ->join('akun3s', 'akun3s.kode_akun3 = tbl_nilai.kode_akun3')
             ->orderBy('akun3s.kode_akun3');
 
-        if($tglawal && $tglakhir){
+        if ($tglawal && $tglakhir) {
             $sql->where('tanggal  >=', $tglawal)->where('tanggal <=', $tglakhir)->where('tbl_nilai.kode_akun3', $kode_akun3);
         }
         return $sql->get()->getResultObject();
@@ -104,17 +107,18 @@ class ModelTransaksi extends Model
         $sql = $this->db->table('tbl_nilai')
             ->join('tbl_transaksi', 'tbl_transaksi.id_transaksi = tbl_nilai.id_transaksi')
             ->join('akun3s', 'akun3s.kode_akun3 = tbl_nilai.kode_akun3')
+            ->select('akun3s.kode_akun3, akun3s.nama_akun3')
             ->selectSum('debit', 'jumdebit')
-            ->selectSum('kredit', 'jumkredit')
-            ->select('akun3s.kode_akun3, akun3s.nama_akun3, tbl_transaksi.tanggal, debit, kredit')
-            // Disesuaikan soalnya error
-            ->groupBy(['akun3s.kode_akun3', 'akun3s.nama_akun3' , 'tbl_transaksi.tanggal', 'tbl_nilai.debit', 'tbl_nilai.kredit']);
+            ->selectSum('kredit', 'jumkredit');
 
         if ($tglawal && $tglakhir) {
-            $sql->where('tanggal  >=', $tglawal)->where('tanggal <=', $tglakhir);
+            $sql->where('tbl_transaksi.tanggal >=', $tglawal)
+                ->where('tbl_transaksi.tanggal <=', $tglakhir);
         }
-        $query = $sql->get()->getResultObject();
-        return $query;
+
+        $sql->groupBy('akun3s.kode_akun3, akun3s.nama_akun3');
+
+        return $sql->get()->getResultObject();
     }
 
     public function get_neracalajur($tglawal, $tglakhir)
@@ -123,49 +127,43 @@ class ModelTransaksi extends Model
         $where2 = '';
 
         if ($tglawal && $tglakhir) {
-            $where1 = "where tb3.tanggal >= '" . $tglawal . "' and tb3.tanggal <= '" . $tglakhir . "'";
-            $where2 = "where tb4.tanggal >= '" . $tglawal . "' and tb4.tanggal <= '" . $tglakhir . "'";
+            $where1 = "AND tb3.tanggal >= '" . $tglawal . "' AND tb3.tanggal <= '" . $tglakhir . "'";
+            $where2 = "AND tb4.tanggal >= '" . $tglawal . "' AND tb4.tanggal <= '" . $tglakhir . "'";
         }
 
-        $sql = $this->db->query("SELECT * FROM(
-            SELECT
-                tbak.nama_akun3, 
-                tb1.kode_akun3, 
-                tb3.tanggal as tanggal,
-                sum(tb1.debit) as jumdebit,
-                sum(tb1.kredit) as jumkredit,
-                tb2.debit as jumdebits,
-                tb2.kredit as jumkredits
-                
-            FROM tbl_nilai as tb1
-                join tbl_transaksi as tb3 on tb3.id_transaksi = tb1.id_transaksi
-                left join tbl_nilaipenyesuaian as tb2 on tb1.kode_akun3 = tb2.kode_akun3
-                join akun3s as tbak on tb1.kode_akun3 = tbak.kode_akun3
-                " . $where1 . "
-                group by tb1.kode_akun3, tbak.nama_akun3, tb3.tanggal, tb2.debit, tb2.kredit 
-            
-            UNION
-            
+        $sql = $this->db->query("
             SELECT 
-                tbak.nama_akun3, 
-                tb2.kode_akun3, 
-                tb4.tanggal as tanggal,
-                sum(tb1.debit) as jumdebit,
-                sum(tb1.kredit) as jumkredit,
-                tb2.debit as jumdebits,
-                tb2.kredit as jumkredits
-            
-            FROM tbl_nilai as tb1            
-                right join tbl_nilaipenyesuaian as tb2 on tb1.kode_akun3 = tb2.kode_akun3
-                join akun3s as tbak on tb2.kode_akun3 = tbak.kode_akun3
-                join tbl_penyesuaian as tb4 on tb4.id_penyesuaian = tb2.id_penyesuaian
-                " . $where2 . "
-                group by tb2.kode_akun3, tbak.nama_akun3, tb4.tanggal, tb2.debit, tb2.kredit              
-            ) as tbl_new
-            group by tbl_new.kode_akun3, tbl_new.nama_akun3, tbl_new.tanggal, tbl_new.jumdebit, tbl_new.jumkredit, tbl_new.jumdebits, tbl_new.jumkredits");
+                tbak.kode_akun3,
+                tbak.nama_akun3,
+                COALESCE(tb_nilai.jumdebit, 0) AS jumdebit,
+                COALESCE(tb_nilai.jumkredit, 0) AS jumkredit,
+                COALESCE(tb_penyesuaian.jumdebit, 0) AS jumdebits,
+                COALESCE(tb_penyesuaian.jumkredit, 0) AS jumkredits
+            FROM akun3s AS tbak
+            LEFT JOIN (
+                SELECT 
+                    tb1.kode_akun3,
+                    SUM(tb1.debit) AS jumdebit,
+                    SUM(tb1.kredit) AS jumkredit
+                FROM tbl_nilai AS tb1
+                JOIN tbl_transaksi AS tb3 ON tb3.id_transaksi = tb1.id_transaksi
+                WHERE 1=1 $where1
+                GROUP BY tb1.kode_akun3
+            ) AS tb_nilai ON tb_nilai.kode_akun3 = tbak.kode_akun3
+            LEFT JOIN (
+                SELECT 
+                    tb2.kode_akun3,
+                    SUM(tb2.debit) AS jumdebit,
+                    SUM(tb2.kredit) AS jumkredit
+                FROM tbl_nilaipenyesuaian AS tb2
+                JOIN tbl_penyesuaian AS tb4 ON tb4.id_penyesuaian = tb2.id_penyesuaian
+                WHERE 1=1 $where2
+                GROUP BY tb2.kode_akun3
+            ) AS tb_penyesuaian ON tb_penyesuaian.kode_akun3 = tbak.kode_akun3
+            ORDER BY tbak.kode_akun3
+        ");
 
-        $query = $sql->getResultObject();
-        return $query;
+        return $sql->getResultObject();
     }
 
     public function get_labarugi($tglawal, $tglakhir)
@@ -174,49 +172,46 @@ class ModelTransaksi extends Model
         $where2 = '';
 
         if ($tglawal && $tglakhir) {
-            $where1 = "where tb3.tanggal >= '" . $tglawal . "' and tb3.tanggal <= '" . $tglakhir . "'";
-            $where2 = "where tb4.tanggal >= '" . $tglawal . "' and tb4.tanggal <= '" . $tglakhir . "'";
+            $where1 = "AND tb3.tanggal >= '" . $tglawal . "' AND tb3.tanggal <= '" . $tglakhir . "'";
+            $where2 = "AND tb4.tanggal >= '" . $tglawal . "' AND tb4.tanggal <= '" . $tglakhir . "'";
         }
 
-        $sql = $this->db->query("SELECT * FROM(
-            SELECT
-                tbak.nama_akun3, tbak.kode_akun2, tbak.kode_akun1, 
-                tb1.kode_akun3, 
-                tb3.tanggal as tanggal,
-                sum(tb1.debit) as jumdebit,
-                sum(tb1.kredit) as jumkredit,
-                tb2.debit as jumdebits,
-                tb2.kredit as jumkredits
-                
-            FROM tbl_nilai as tb1
-                join tbl_transaksi as tb3 on tb3.id_transaksi = tb1.id_transaksi
-                left join tbl_nilaipenyesuaian as tb2 on tb1.kode_akun3 = tb2.kode_akun3
-                join akun3s as tbak on tb1.kode_akun3 = tbak.kode_akun3
-                " . $where1 . "
-                group by tb1.kode_akun3, tbak.nama_akun3, tbak.kode_akun2, tbak.kode_akun1, tb3.tanggal, tb2.debit, tb2.kredit 
-            
-            UNION
-            
+        $sql = $this->db->query("
             SELECT 
-                tbak.nama_akun3, tbak.kode_akun2, tbak.kode_akun1, 
-                tb2.kode_akun3, 
-                tb4.tanggal as tanggal,
-                sum(tb1.debit) as jumdebit,
-                sum(tb1.kredit) as jumkredit,
-                tb2.debit as jumdebits,
-                tb2.kredit as jumkredits
-            
-            FROM tbl_nilai as tb1            
-                right join tbl_nilaipenyesuaian as tb2 on tb1.kode_akun3 = tb2.kode_akun3
-                join akun3s as tbak on tb2.kode_akun3 = tbak.kode_akun3
-                join tbl_penyesuaian as tb4 on tb4.id_penyesuaian = tb2.id_penyesuaian
-                " . $where2 . "
-                group by tb2.kode_akun3, tbak.nama_akun3, tbak.kode_akun2, tbak.kode_akun1, tb4.tanggal, tb2.debit, tb2.kredit              
-            ) as tbl_new where tbl_new.kode_akun1 >= 4
-            group by tbl_new.kode_akun3, tbl_new.nama_akun3, tbl_new.kode_akun2, tbl_new.kode_akun1, tbl_new.tanggal, tbl_new.jumdebit, tbl_new.jumkredit, tbl_new.jumdebits, tbl_new.jumkredits");
+                tbak.kode_akun1,
+                tbak.kode_akun2,
+                tbak.kode_akun3,
+                tbak.nama_akun3,
+                COALESCE(tb_nilai.jumdebit,0) AS jumdebit,
+                COALESCE(tb_nilai.jumkredit,0) AS jumkredit,
+                COALESCE(tb_penyesuaian.jumdebit,0) AS jumdebits,
+                COALESCE(tb_penyesuaian.jumkredit,0) AS jumkredits
+            FROM akun3s AS tbak
+            LEFT JOIN (
+                SELECT 
+                    tb1.kode_akun3,
+                    SUM(tb1.debit) AS jumdebit,
+                    SUM(tb1.kredit) AS jumkredit
+                FROM tbl_nilai AS tb1
+                JOIN tbl_transaksi AS tb3 ON tb3.id_transaksi = tb1.id_transaksi
+                WHERE 1=1 $where1
+                GROUP BY tb1.kode_akun3
+            ) AS tb_nilai ON tb_nilai.kode_akun3 = tbak.kode_akun3
+            LEFT JOIN (
+                SELECT 
+                    tb2.kode_akun3,
+                    SUM(tb2.debit) AS jumdebit,
+                    SUM(tb2.kredit) AS jumkredit
+                FROM tbl_nilaipenyesuaian AS tb2
+                JOIN tbl_penyesuaian AS tb4 ON tb4.id_penyesuaian = tb2.id_penyesuaian
+                WHERE 1=1 $where2
+                GROUP BY tb2.kode_akun3
+            ) AS tb_penyesuaian ON tb_penyesuaian.kode_akun3 = tbak.kode_akun3
+            WHERE tbak.kode_akun1 >= 4
+            ORDER BY tbak.kode_akun3
+        ");
 
-        $query = $sql->getResultObject();
-        return $query;
+        return $sql->getResultObject();
     }
 
     public function get_pmodal($tglawal, $tglakhir)
@@ -276,65 +271,63 @@ class ModelTransaksi extends Model
         $where2 = '';
 
         if ($tglawal && $tglakhir) {
-            $where1 = "where tb3.tanggal >= '" . $tglawal . "' and tb3.tanggal <= '" . $tglakhir . "'";
-            $where2 = "where tb4.tanggal >= '" . $tglawal . "' and tb4.tanggal <= '" . $tglakhir . "'";
+            $where1 = "AND tb3.tanggal >= '" . $tglawal . "' AND tb3.tanggal <= '" . $tglakhir . "'";
+            $where2 = "AND tb4.tanggal >= '" . $tglawal . "' AND tb4.tanggal <= '" . $tglakhir . "'";
         }
 
-        $sql = $this->db->query("SELECT * FROM(
-            SELECT
-                tbak.nama_akun3, tbak.kode_akun2, tbak.kode_akun1, 
-                tb1.kode_akun3, 
-                tb3.tanggal as tanggal,
-                sum(tb1.debit) as jumdebit,
-                sum(tb1.kredit) as jumkredit,
-                tb2.debit as jumdebits,
-                tb2.kredit as jumkredits
-                
-            FROM tbl_nilai as tb1
-                join tbl_transaksi as tb3 on tb3.id_transaksi = tb1.id_transaksi
-                left join tbl_nilaipenyesuaian as tb2 on tb1.kode_akun3 = tb2.kode_akun3
-                join akun3s as tbak on tb1.kode_akun3 = tbak.kode_akun3
-                " . $where1 . "
-                group by tb1.kode_akun3, tbak.nama_akun3, tbak.kode_akun2, tbak.kode_akun1, tb3.tanggal, tb2.debit, tb2.kredit 
-            
-            UNION
-            
+        $sql = $this->db->query("
+        SELECT 
+            tbak.kode_akun1,
+            tbak.kode_akun2,
+            tbak.kode_akun3,
+            tbak.nama_akun3,
+            COALESCE(tb_nilai.jumdebit,0) AS jumdebit,
+            COALESCE(tb_nilai.jumkredit,0) AS jumkredit,
+            COALESCE(tb_penyesuaian.jumdebit,0) AS jumdebits,
+            COALESCE(tb_penyesuaian.jumkredit,0) AS jumkredits
+        FROM akun3s AS tbak
+        LEFT JOIN (
             SELECT 
-                tbak.nama_akun3, tbak.kode_akun2, tbak.kode_akun1, 
-                tb2.kode_akun3, 
-                tb4.tanggal as tanggal,
-                sum(tb1.debit) as jumdebit,
-                sum(tb1.kredit) as jumkredit,
-                tb2.debit as jumdebits,
-                tb2.kredit as jumkredits
-            
-            FROM tbl_nilai as tb1            
-                right join tbl_nilaipenyesuaian as tb2 on tb1.kode_akun3 = tb2.kode_akun3
-                join akun3s as tbak on tb2.kode_akun3 = tbak.kode_akun3
-                join tbl_penyesuaian as tb4 on tb4.id_penyesuaian = tb2.id_penyesuaian
-                " . $where2 . "
-                group by tb2.kode_akun3, tbak.nama_akun3, tbak.kode_akun2, tbak.kode_akun1, tb4.tanggal, tb2.debit, tb2.kredit              
-            ) as tbl_new where tbl_new.kode_akun1 <= 2
-            group by tbl_new.kode_akun3, tbl_new.nama_akun3, tbl_new.kode_akun2, tbl_new.kode_akun1, tbl_new.tanggal, tbl_new.jumdebit, tbl_new.jumkredit, tbl_new.jumdebits, tbl_new.jumkredits");
+                tb1.kode_akun3,
+                SUM(tb1.debit) AS jumdebit,
+                SUM(tb1.kredit) AS jumkredit
+            FROM tbl_nilai AS tb1
+            JOIN tbl_transaksi AS tb3 ON tb3.id_transaksi = tb1.id_transaksi
+            WHERE 1=1 $where1
+            GROUP BY tb1.kode_akun3
+        ) AS tb_nilai ON tb_nilai.kode_akun3 = tbak.kode_akun3
+        LEFT JOIN (
+            SELECT 
+                tb2.kode_akun3,
+                SUM(tb2.debit) AS jumdebit,
+                SUM(tb2.kredit) AS jumkredit
+            FROM tbl_nilaipenyesuaian AS tb2
+            JOIN tbl_penyesuaian AS tb4 ON tb4.id_penyesuaian = tb2.id_penyesuaian
+            WHERE 1=1 $where2
+            GROUP BY tb2.kode_akun3
+        ) AS tb_penyesuaian ON tb_penyesuaian.kode_akun3 = tbak.kode_akun3
+        WHERE tbak.kode_akun1 <= 2
+        ORDER BY tbak.kode_akun3
+    ");
 
-        $query = $sql->getResultObject();
-        return $query;
+        return $sql->getResultObject();
     }
 
     public function get_aruskas($tglawal, $tglakhir)
     {
-        $sql = $this->db->table('tbl_nilai')
+        $builder = $this->db->table('tbl_nilai')
             ->join('tbl_transaksi', 'tbl_transaksi.id_transaksi = tbl_nilai.id_transaksi')
             ->join('akun3s', 'akun3s.kode_akun3 = tbl_nilai.kode_akun3')
-            ->select('akun3s.kode_akun3, akun3s.nama_akun3, tbl_transaksi.tanggal, debit, kredit, id_status, ketjurnal')
-            // Disesuaikan soalnya error
-            ->groupBy(['akun3s.kode_akun3', 'akun3s.nama_akun3', 'tbl_transaksi.tanggal', 'debit', 'kredit', 'id_status', 'ketjurnal'])
-            ->where('akun3s.kode_akun3=1101');
+            ->select('akun3s.kode_akun3, akun3s.nama_akun3, tbl_transaksi.tanggal, tbl_nilai.debit, tbl_nilai.kredit, tbl_nilai.id_status, tbl_transaksi.ketjurnal')
+            ->where('akun3s.kode_akun3', 1101);
 
         if ($tglawal && $tglakhir) {
-            $sql->where('tanggal  >=', $tglawal)->where('tanggal <=', $tglakhir);
+            $builder->where('tbl_transaksi.tanggal >=', $tglawal)
+                ->where('tbl_transaksi.tanggal <=', $tglakhir);
         }
-        $query = $sql->get()->getResultObject();
-        return $query;
+
+        $builder->orderBy('tbl_transaksi.tanggal', 'ASC');
+
+        return $builder->get()->getResultObject();
     }
 }

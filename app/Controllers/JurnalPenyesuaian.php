@@ -38,6 +38,8 @@ class JurnalPenyesuaian extends BaseController
         $data['tglawal'] = $tglawal;
         $data['tglakhir'] = $tglakhir;
 
+        // print_r($rowdata);
+
         return view('jurnalpenyesuaian/index', $data);
     }
 

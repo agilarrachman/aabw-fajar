@@ -94,11 +94,11 @@
                             }
 
                             if ($neracajp > 0) {
-                                $debitnewjp = abs($neracajp);
+                                $debitnewjp = $neracajp;
                                 $tdjp = $tdjp + $debitnewjp;
                             } else {
                                 $debitnewjp = 0;
-                            }                            
+                            }
 
                             if ($neraca < 0) {
                                 $kreditnew = abs($neraca);
@@ -108,17 +108,17 @@
                             }
 
                             if ($neraca > 0) {
-                                $debitnew = abs($neraca);
+                                $debitnew = $neraca;
                                 $td = $td + $debitnew;
                             } else {
                                 $debitnew = 0;
                             }
 
-                            // Tambahan Jurnal Penyesuaian
+                            // tambahan tambahan jurnal penyesuaian
                             $ns = $debitnew - $kreditnew + $value->jumdebits - $value->jumkredits;
 
                             if ($ns > 0) {
-                                $debs = abs($ns);
+                                $debs = $ns;
                                 $totd = $totd + $debs;
                             } else {
                                 $debs = 0;
@@ -131,7 +131,7 @@
                                 $kres = 0;
                             }
 
-                            // Laba Rugi
+                            // laba Rugi
                             $kode_akun = $value->kode_akun3;
                             $kode = substr($kode_akun, 0, 1);
 
@@ -158,7 +158,7 @@
                             }
 
                             if ($kode <= 3 and $ns < 0) {
-                                $nrkd = abs($debs);
+                                $nrkd = abs($ns);
                                 $totkd = $totkd + $nrkd;
                             } else {
                                 $nrkd = 0;
@@ -180,20 +180,85 @@
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
+                    
                     <tfoot class="judul">
                         <tr>
                             <td class="text-center"></td>
                             <td class="text-center"></td>
-                            <td class="text-right"><?= number_format($td, 0, ",", ".") ?></td>
-                            <td class="text-right"><?= number_format($tk, 0, ",", ".") ?></td>
-                            <td class="text-right"><?= number_format($tdjp, 0, ",", ".") ?></td>
-                            <td class="text-right"><?= number_format($tkjp, 0, ",", ".") ?></td>
-                            <td class="text-right"><?= number_format($totd, 0, ",", ".") ?></td>
-                            <td class="text-right"><?= number_format($totk, 0, ",", ".") ?></td>
-                            <td class="text-right"><?= number_format($lb_td, 0, ",", ".") ?></td>
-                            <td class="text-right"><?= number_format($lb_tk, 0, ",", ".") ?></td>
-                            <td class="text-right"><?= number_format($totns, 0, ",", ".") ?></td>
-                            <td class="text-right"><?= number_format($totkd, 0, ",", ".") ?></td>
+                            <td class="text-right"><?= number_format($td, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($tk, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($tdjp, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($tkjp, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($totd, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($totk, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($lb_td, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($lb_tk, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($totns, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($totkd, 0, ",", ",") ?></td>
+                        </tr>
+                        <?php
+                        // Hitung Laba/Rugi (Dari total kolom Laba Rugi yang sudah dihitung)
+                        $laba_bersih = $lb_td - $lb_tk;
+                        $total_laba_rugi = abs($laba_bersih);
+
+                        // Inisialisasi total akhir
+                        $lb_td_akhir = $lb_tk;
+                        $lb_tk_akhir = $lb_td;
+                        $nr_td_akhir = $totns;
+                        $nr_tk_akhir = $totkd;
+
+                        if ($laba_bersih > 0) { // Kasus Laba Bersih
+                            // Kolom Laba Rugi: Laba ditaruh di Debit (utk seimbangkan baris LR)
+                            $lb_db_selisih = 0;
+                            $lb_kr_selisih = $total_laba_rugi;
+                            $lb_td_akhir = $lb_td_akhir + $total_laba_rugi;
+
+                            // Kolom Neraca: Laba ditaruh di Kredit (menambah Modal)
+                            $nr_db_selisih = 0;
+                            $nr_kr_selisih = $total_laba_rugi;
+                            $nr_tk_akhir = $nr_tk_akhir + $total_laba_rugi;
+                        } elseif ($laba_bersih < 0) { // Kasus Rugi Bersih
+                            // Kolom Laba Rugi: Rugi ditaruh di Kredit (utk seimbangkan baris LR)
+                            $lb_db_selisih = $total_laba_rugi;
+                            $lb_kr_selisih = 0;
+                            $lb_tk_akhir = $lb_tk_akhir + $total_laba_rugi;
+
+                            // Kolom Neraca: Rugi ditaruh di Debit (mengurangi Modal)
+                            $nr_db_selisih = $total_laba_rugi;
+                            $nr_kr_selisih = 0;
+                            $nr_td_akhir = $nr_td_akhir + $total_laba_rugi;
+                        } else {
+                            $lb_db_selisih = 0;
+                            $lb_kr_selisih = 0;
+                            $nr_db_selisih = 0;
+                            $nr_kr_selisih = 0;
+                        }
+                        ?>
+                        <tr>
+                            <td class="text-left" colspan="2">
+                                <?= ($laba_bersih > 0) ? 'Laba Bersih' : (($laba_bersih < 0) ? 'Rugi Bersih' : 'Laba/Rugi Nol') ?>
+                            </td>
+                            <td colspan="6"></td>
+
+                            <td class="text-right"><?= number_format($lb_db_selisih, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($lb_kr_selisih, 0, ",", ",") ?></td>
+
+                            <td class="text-right"><?= number_format($nr_db_selisih, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($nr_kr_selisih, 0, ",", ",") ?></td>
+                        </tr>
+
+                        <tr class="judul1" style="font-weight: bold;">
+                            <td class="text-left" colspan="2">TOTAL AKHIR</td>
+                            <td class="text-right"><?= number_format($td, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($tk, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($tdjp, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($tkjp, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($totd, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($totk, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($lb_td_akhir, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($lb_tk_akhir, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($nr_td_akhir, 0, ",", ",") ?></td>
+                            <td class="text-right"><?= number_format($nr_tk_akhir, 0, ",", ",") ?></td>
                         </tr>
                     </tfoot>
                 </table>
